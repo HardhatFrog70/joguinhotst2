@@ -1,0 +1,683 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Jogo educativo de segurança do trabalho para cursos Técnicos em Segurança do Trabalho.">
+  <meta name="author" content="Trabalho Seguro Ltda.">
+  <title>SEMÁFORO DA SEGURANÇA - Trabalho Seguro Ltda.</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- ========================================================================
+       TOP HEADER / STATUS BAR
+       ======================================================================== -->
+  <header id="game-header">
+    <div class="header-top">
+      <div class="brand-group" onclick="GameApp.goToMap()">
+        <div class="mini-light"></div>
+        <div>
+          <div class="brand-title">SEMÁFORO DA SEGURANÇA</div>
+          <div class="brand-sub">Trabalho Seguro Ltda.</div>
+        </div>
+      </div>
+
+      <div class="stats-group">
+        <div id="team-turn-badge" class="team-turn-indicator" style="display: none;">
+          <div class="team-color-dot" id="team-turn-dot"></div>
+          <span id="team-turn-name">Equipe Alfa</span>
+        </div>
+
+        <div class="stat-badge score" title="Pontuação Atual">
+          <span>🏆</span>
+          <span id="hud-score">0 pts</span>
+        </div>
+
+        <div class="stat-badge lives" title="Vidas Restantes">
+          <span id="hud-lives">❤️❤️❤️</span>
+        </div>
+
+        <div class="stat-badge combo" title="Multiplicador de Combo">
+          <span>COMBO</span>
+          <span id="hud-combo">x1</span>
+        </div>
+
+        <div class="stat-badge timer" title="Tempo">
+          <span>⏱️</span>
+          <span id="hud-timer">00s</span>
+        </div>
+
+        <button id="btn-sound-toggle" class="btn-icon-toggle" title="Som Ativado/Desativado" onclick="SoundFX.toggleMute()">
+          🔊
+        </button>
+      </div>
+    </div>
+
+    <div class="header-bottom">
+      <div class="progress-bar-container" title="Progresso da Fase">
+        <div class="progress-bar-fill" id="hud-progress-fill"></div>
+      </div>
+
+      <div class="powerups-group">
+        <button id="powerup-hint" class="btn-powerup" title="Eliminar 1 opção incorreta ou obter dica" onclick="GameApp.usePowerUp('hint')">
+          💡 Dica <span class="count-badge" id="hud-powerup-hint">3</span>
+        </button>
+        <button id="powerup-swap" class="btn-powerup" title="Trocar situação atual sem penalidade" onclick="GameApp.usePowerUp('swap')">
+          ⏭️ Trocar <span class="count-badge" id="hud-powerup-swap">2</span>
+        </button>
+        <button id="powerup-shield" class="btn-powerup" title="Ativar escudo contra próximo erro" onclick="GameApp.usePowerUp('shield')">
+          🛡️ Escudo <span class="count-badge" id="hud-powerup-shield">1</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       MAIN APP CONTAINER
+       ======================================================================== -->
+  <main id="app">
+    <!-- SCREEN 1: START SCREEN -->
+    <section id="screen-home" class="screen active">
+      <div class="hero-container">
+        <!-- Animated Traffic Light Hero -->
+        <div class="traffic-light-hero" id="hero-traffic-light">
+          <div class="light-lens red" id="hero-lens-red"></div>
+          <div class="light-lens yellow" id="hero-lens-yellow"></div>
+          <div class="light-lens green" id="hero-lens-green"></div>
+        </div>
+
+        <div class="title-banner">
+          <h1>SEMÁFORO DA SEGURANÇA</h1>
+          <div class="sub">
+            <span>🛡️</span>
+            <span>Trabalho Seguro Ltda.</span>
+            <span>⚡</span>
+          </div>
+        </div>
+
+        <div class="level-selector-box">
+          <span class="level-label">Selecione o Nível de Dificuldade</span>
+          <div class="level-options">
+            <button class="level-btn selected" data-level="1" onclick="GameApp.selectDifficulty(1)">
+              <span>🌱 Estagiário</span>
+              <span class="sub-text">Fácil • 30 segundos</span>
+            </button>
+            <button class="level-btn" data-level="2" onclick="GameApp.selectDifficulty(2)">
+              <span>🔧 Técnico</span>
+              <span class="sub-text">Médio • 20 segundos</span>
+            </button>
+            <button class="level-btn" data-level="3" onclick="GameApp.selectDifficulty(3)">
+              <span>⭐ Especialista</span>
+              <span class="sub-text">Difícil • 15 segundos</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mode-actions-box">
+          <button class="btn-hero solo" onclick="GameApp.startSoloMode()">
+            <span>👤</span> JOGAR SOZINHO
+          </button>
+          <button class="btn-hero compete" onclick="GameApp.goToCompetitionSetup()">
+            <span>👥</span> COMPETIÇÃO ENTRE EQUIPES
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 2: COMPETITION SETUP -->
+    <section id="screen-competition-setup" class="screen">
+      <div class="setup-card">
+        <h2 class="setup-title">Configurar Competição</h2>
+        <p class="setup-subtitle">Escolha o número de equipes participantes (2 a 4) e personalize nomes e cores</p>
+
+        <div class="team-count-selector">
+          <button class="team-count-btn active" onclick="GameApp.setTeamCount(2)">2</button>
+          <button class="team-count-btn" onclick="GameApp.setTeamCount(3)">3</button>
+          <button class="team-count-btn" onclick="GameApp.setTeamCount(4)">4</button>
+        </div>
+
+        <div class="teams-list-grid" id="teams-inputs-container">
+          <!-- Injected via JavaScript -->
+        </div>
+
+        <div style="display: flex; gap: 1rem; width: 100%; margin-top: 1rem;">
+          <button class="btn-hero" style="background: rgba(255,255,255,0.08); color: var(--text);" onclick="GameApp.showScreen('screen-home')">
+            ⬅️ Voltar
+          </button>
+          <button class="btn-hero compete" onclick="GameApp.startCompetitionMode()">
+            🚀 INICIAR COMPETIÇÃO
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 3: STAGE MAP (TRAIL) -->
+    <section id="screen-map" class="screen">
+      <div class="map-container">
+        <div class="map-header">
+          <h2>Trilha da Prevenção</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem;">Complete as 7 fases para se certificar como Mestre da Segurança</p>
+        </div>
+
+        <div class="map-trail" id="map-trail-stages">
+          <!-- Dynamically populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 4: MODO 1 - SEMÁFORO RÁPIDO -->
+    <section id="screen-mode1" class="screen">
+      <div class="gameplay-box">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div class="situation-tag" id="mode1-tag">Fase 1 • Situação 1/15</div>
+          <div style="font-size: 0.88rem; color: var(--text-muted); font-weight: 700;" id="mode1-level-name">Nível: Estagiário</div>
+        </div>
+
+        <div class="situation-scene-container" id="mode1-scene-svg">
+          <!-- Dynamic SVG illustration for the situation -->
+        </div>
+
+        <div class="situation-content">
+          <h3 class="situation-title" id="mode1-title">Operador de Máquina</h3>
+          <p class="situation-desc" id="mode1-desc">
+            João está operando uma prensa com todos os EPIs: capacete, óculos de proteção, luvas e botinas. A proteção da máquina está instalada e ele seguiu o procedimento padrão.
+          </p>
+        </div>
+
+        <div class="semaforo-buttons-grid">
+          <button class="btn-signal green" onclick="GameApp.handleSignalChoice('green')">
+            <div class="signal-dot" style="background: var(--green);"></div>
+            <span>VERDE</span>
+            <small style="font-size: 0.75rem; opacity: 0.9;">SITUAÇÃO SEGURA</small>
+          </button>
+
+          <button class="btn-signal yellow" onclick="GameApp.handleSignalChoice('yellow')">
+            <div class="signal-dot" style="background: var(--yellow);"></div>
+            <span>AMARELO</span>
+            <small style="font-size: 0.75rem; opacity: 0.9;">ATENÇÃO / RISCO</small>
+          </button>
+
+          <button class="btn-signal red" onclick="GameApp.handleSignalChoice('red')">
+            <div class="signal-dot" style="background: var(--red);"></div>
+            <span>VERMELHO</span>
+            <small style="font-size: 0.75rem; opacity: 0.9;">PERIGO GRAVE</small>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 5: MODO 2 - CAÇA AOS RISCOS -->
+    <section id="screen-mode2" class="screen">
+      <div class="caca-riscos-container">
+        <div class="caca-toolbar">
+          <div>
+            <h3 style="color: #fff; font-size: 1.2rem;">🔎 Caça aos Riscos no Galpão</h3>
+            <span style="color: var(--text-muted); font-size: 0.85rem;">Encontre os 6 riscos graves ocultos na cena antes do tempo acabar!</span>
+          </div>
+          <div class="stat-badge combo" style="font-size: 1rem;">
+            <span>Riscos Encontrados: </span>
+            <strong id="caca-counter" style="color: var(--green); margin-left: 4px;">0 / 6</strong>
+          </div>
+        </div>
+
+        <div class="factory-scene-wrapper" id="factory-scene-wrapper" onclick="GameApp.handleFactoryClick(event)">
+          <!-- Dynamic High Detail SVG of Factory Interior -->
+          <svg class="factory-scene-svg" id="factory-svg-main" viewBox="0 0 1000 550" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#121324" />
+                <stop offset="100%" stop-color="#1e2038" />
+              </linearGradient>
+              <linearGradient id="floorGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#2a2b42" />
+                <stop offset="100%" stop-color="#181928" />
+              </linearGradient>
+              <pattern id="hazardStripe" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="10" height="20" fill="#ffd700" />
+                <rect x="10" width="10" height="20" fill="#111" />
+              </pattern>
+            </defs>
+
+            <!-- Factory Background -->
+            <rect x="0" y="0" width="1000" height="360" fill="url(#wallGrad)" />
+            <rect x="0" y="360" width="1000" height="190" fill="url(#floorGrad)" />
+
+            <!-- Steel Trusses Ceiling -->
+            <path d="M0 40 L1000 40 M0 80 L1000 80 M100 0 L150 40 L200 0 L250 40 L300 0 L350 40 L400 0 L450 40 L500 0 L550 40 L600 0 L650 40 L700 0 L750 40 L800 0 L850 40 L900 0 L950 40 L1000 0" stroke="#333652" stroke-width="3" fill="none" />
+            <!-- Overhead Lamps with Light Beams -->
+            <polygon points="180,40 140,360 260,360 220,40" fill="rgba(255,255,255,0.03)" />
+            <polygon points="500,40 450,360 570,360 520,40" fill="rgba(255,255,255,0.03)" />
+            <polygon points="820,40 770,360 890,360 840,40" fill="rgba(255,255,255,0.03)" />
+
+            <!-- Pedestrian Safety Walkways (Demarcated Lines) -->
+            <rect x="0" y="440" width="1000" height="10" fill="url(#hazardStripe)" />
+            <rect x="0" y="520" width="1000" height="10" fill="url(#hazardStripe)" />
+
+            <!-- Emergency Exit Door (Safe background) -->
+            <rect x="880" y="240" width="80" height="120" fill="#1b5e20" stroke="#4caf50" stroke-width="2" />
+            <rect x="900" y="250" width="40" height="16" fill="#4caf50" rx="3" />
+            <text x="920" y="262" font-size="10" fill="#fff" font-weight="bold" text-anchor="middle">SAÍDA</text>
+
+            <!-- Storage Racks (Safe background) -->
+            <g id="storage-racks" stroke="#3949ab" stroke-width="3" fill="#1a237e">
+              <rect x="40" y="140" width="200" height="220" fill="rgba(30,35,70,0.5)" />
+              <line x1="40" y1="210" x2="240" y2="210" />
+              <line x1="40" y1="280" x2="240" y2="280" />
+              <!-- Safe Pallets and Crates on Shelves -->
+              <rect x="50" y="160" width="45" height="45" fill="#5d4037" stroke="#8d6e63" stroke-width="1" />
+              <rect x="105" y="165" width="40" height="40" fill="#37474f" stroke="#78909c" stroke-width="1" />
+              <rect x="60" y="230" width="70" height="45" fill="#455a64" stroke="#90a4ae" stroke-width="1" />
+              <rect x="145" y="225" width="80" height="50" fill="#5d4037" stroke="#8d6e63" stroke-width="1" />
+            </g>
+
+            <!-- ================= HAZARD 1: EXTINTOR BLOQUEADO ================= -->
+            <g id="hazard-group-1">
+              <!-- Wall Extinguisher Backing Board -->
+              <rect x="290" y="210" width="40" height="70" fill="#b71c1c" rx="4" />
+              <text x="310" y="225" font-size="9" fill="#fff" font-weight="bold" text-anchor="middle">INCÊNDIO</text>
+              <rect x="302" y="235" width="16" height="35" fill="#ff1744" rx="6" />
+              <!-- Large Wooden Pallet and Boxes completely blocking it -->
+              <rect x="275" y="250" width="70" height="120" fill="#8d6e63" stroke="#4e342e" stroke-width="2" rx="3" />
+              <line x1="275" y1="285" x2="345" y2="285" stroke="#4e342e" stroke-width="2" />
+              <line x1="275" y1="320" x2="345" y2="320" stroke="#4e342e" stroke-width="2" />
+              <text x="310" y="300" font-size="10" fill="#3e2723" font-weight="bold" text-anchor="middle">CARGA</text>
+              <!-- Clickable Hotspot Rect -->
+              <rect id="hotspot-1" class="hazard-hotspot" x="270" y="200" width="85" height="180" onclick="GameApp.foundHazard(1, event)" />
+            </g>
+
+            <!-- ================= HAZARD 2: CABO DE ENERGIA NO CHÃO ================= -->
+            <g id="hazard-group-2">
+              <path d="M420 360 C440 400, 410 460, 480 470 C530 480, 560 450, 610 490" stroke="#ffeb3b" stroke-width="5" fill="none" />
+              <!-- Improvised electrical tape splices -->
+              <rect x="445" y="425" width="14" height="10" fill="#000" rx="2" />
+              <rect x="520" y="470" width="14" height="10" fill="#000" rx="2" />
+              <!-- Electrical sparks SVG animation -->
+              <polygon points="527,460 523,472 531,472 525,485 533,470 526,470" fill="#00e5ff">
+                <animate attributeName="opacity" values="0;1;0;1;0" dur="1.2s" repeatCount="indefinite" />
+              </polygon>
+              <rect id="hotspot-2" class="hazard-hotspot" x="410" y="410" width="200" height="95" onclick="GameApp.foundHazard(2, event)" />
+            </g>
+
+            <!-- ================= HAZARD 3: MÁQUINA SEM PROTEÇÃO (SERRA/PRENSA) ================= -->
+            <g id="hazard-group-3">
+              <rect x="650" y="270" width="110" height="100" fill="#263238" stroke="#455a64" stroke-width="3" rx="4" />
+              <!-- Spinning Circular Saw with sparks, NO GUARD -->
+              <circle cx="705" cy="270" r="28" fill="#cfd8dc" stroke="#b0bec5" stroke-width="2" stroke-dasharray="8 4" />
+              <!-- Flying sparks -->
+              <circle cx="725" cy="255" r="3" fill="#ffab00" />
+              <circle cx="735" cy="265" r="2" fill="#ffd600" />
+              <circle cx="745" cy="250" r="2.5" fill="#ff6d00" />
+              <!-- Warning icon without protective screen -->
+              <polygon points="685,340 705,305 725,340" fill="#ffd600" />
+              <text x="705" y="335" font-size="12" fill="#000" font-weight="bold" text-anchor="middle">!</text>
+              <rect id="hotspot-3" class="hazard-hotspot" x="640" y="235" width="130" height="140" onclick="GameApp.foundHazard(3, event)" />
+            </g>
+
+            <!-- ================= HAZARD 4: ESCADA TORTA / INSTÁVEL ================= -->
+            <g id="hazard-group-4">
+              <!-- Steep aluminum ladder at 85 degrees leaning on upper beam -->
+              <line x1="395" y1="110" x2="420" y2="360" stroke="#cfd8dc" stroke-width="5" />
+              <line x1="415" y1="110" x2="440" y2="360" stroke="#cfd8dc" stroke-width="5" />
+              <!-- Rungs -->
+              <line x1="398" y1="140" x2="418" y2="140" stroke="#cfd8dc" stroke-width="3" />
+              <line x1="402" y1="180" x2="422" y2="180" stroke="#cfd8dc" stroke-width="3" />
+              <line x1="406" y1="220" x2="426" y2="220" stroke="#cfd8dc" stroke-width="3" />
+              <line x1="410" y1="260" x2="430" y2="260" stroke="#cfd8dc" stroke-width="3" />
+              <line x1="414" y1="300" x2="434" y2="300" stroke="#cfd8dc" stroke-width="3" />
+              <line x1="418" y1="340" x2="438" y2="340" stroke="#cfd8dc" stroke-width="3" />
+              <rect id="hotspot-4" class="hazard-hotspot" x="385" y="105" width="70" height="260" onclick="GameApp.foundHazard(4, event)" />
+            </g>
+
+            <!-- ================= HAZARD 5: TRABALHADOR SEM EPI ================= -->
+            <g id="hazard-group-5">
+              <!-- Worker silhouette near sparks without helmet or goggles -->
+              <circle cx="580" cy="265" r="14" fill="#ffcc80" /> <!-- Bare head, no helmet -->
+              <path d="M570 262 Q580 250 590 262" stroke="#4e342e" stroke-width="4" fill="none" /> <!-- Hair -->
+              <rect x="568" y="280" width="24" height="45" fill="#3f51b5" rx="3" /> <!-- Clothes, no vest -->
+              <rect x="562" y="325" width="12" height="35" fill="#263238" />
+              <rect x="580" y="325" width="12" height="35" fill="#263238" />
+              <rect id="hotspot-5" class="hazard-hotspot" x="555" y="245" width="50" height="120" onclick="GameApp.foundHazard(5, event)" />
+            </g>
+
+            <!-- ================= HAZARD 6: PRODUTO QUÍMICO VAZANDO SEM RÓTULO ================= -->
+            <g id="hazard-group-6">
+              <!-- Chemical blue drum with corrosion, leaking liquid, no GHS label -->
+              <ellipse cx="820" cy="380" rx="20" ry="8" fill="#0277bd" />
+              <rect x="800" y="380" width="40" height="55" fill="#01579b" rx="4" />
+              <ellipse cx="820" cy="435" rx="20" ry="8" fill="#01579b" />
+              <!-- Chemical puddle spreading on floor -->
+              <ellipse cx="835" cy="445" rx="45" ry="14" fill="#00e676" opacity="0.75" />
+              <!-- Fumes coming off -->
+              <path d="M815 375 Q810 360 820 345" stroke="#76ff03" stroke-width="2" fill="none" opacity="0.6" />
+              <path d="M828 375 Q835 360 825 345" stroke="#76ff03" stroke-width="2" fill="none" opacity="0.6" />
+              <rect id="hotspot-6" class="hazard-hotspot" x="790" y="350" width="95" height="110" onclick="GameApp.foundHazard(6, event)" />
+            </g>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 6: MODO 3 - MONTE O EPI -->
+    <section id="screen-mode3" class="screen">
+      <div class="epi-workspace">
+        <div class="epi-task-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="situation-tag" id="epi-task-counter">Tarefa 1/5</div>
+            <div style="font-weight: 700; color: var(--green);">+5 pts / EPI</div>
+          </div>
+          <h3 id="epi-task-title" style="color: #fff; font-size: 1.25rem;">Soldagem Industrial</h3>
+          <p id="epi-task-desc" style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.45;">
+            Selecione todos os EPIs obrigatórios para o profissional realizar soldagem com eletrodo revestido em ambiente de caldeiraria.
+          </p>
+
+          <div style="margin-top: 0.5rem;">
+            <span style="font-size: 0.8rem; font-weight: 800; text-transform: uppercase; color: var(--accent); letter-spacing: 1px;">
+              EPIs Selecionados (<span id="epi-equipped-count">0</span>):
+            </span>
+            <div class="equipped-shelf" id="epi-equipped-shelf">
+              <!-- Equipped items injected here -->
+            </div>
+          </div>
+
+          <button class="btn-hero solo" style="margin-top: auto;" onclick="GameApp.confirmEpiSelection()">
+            ✅ CONFIRMAR EPIs
+          </button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h4 style="color: var(--text); font-size: 1rem; text-transform: uppercase; letter-spacing: 1.5px;">
+              🗄️ Armário de EPIs Disponíveis
+            </h4>
+            <small style="color: var(--text-muted);">Clique para equipar / desequipar</small>
+          </div>
+          <div class="epi-locker-grid" id="epi-locker-container">
+            <!-- 18 EPI items injected by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 7: MODO 4 - DECISÃO DO TÉCNICO -->
+    <section id="screen-mode4" class="screen">
+      <div class="decision-container">
+        <div class="gameplay-box" style="box-shadow: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="situation-tag" id="decision-counter">Cenário 1/5</div>
+            <div style="font-size: 0.85rem; color: var(--yellow); font-weight: 700;">Decisão Crítica</div>
+          </div>
+          <h3 class="situation-title" id="decision-title">Vazamento de Gás Combustível</h3>
+          <p class="situation-desc" id="decision-desc">
+            Durante sua ronda de segurança matinal, você detecta forte odor característico de GLP em uma sala fechada de compressores industriais. Qual é a sua ação imediata?
+          </p>
+        </div>
+
+        <div class="options-list" id="decision-options-container">
+          <!-- Injected via JavaScript -->
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 8: MODO 5 - ORDEM CERTA -->
+    <section id="screen-mode5" class="screen">
+      <div class="order-container">
+        <div class="gameplay-box" style="box-shadow: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="situation-tag" id="order-proc-counter">Procedimento 1/3</div>
+            <div style="font-size: 0.85rem; color: var(--green); font-weight: 700;">+20 pts Perfeito</div>
+          </div>
+          <h3 class="situation-title" id="order-title">Bloqueio e Etiquetagem (LOTO)</h3>
+          <p class="situation-desc" id="order-desc">
+            Ordene as etapas corretas para garantir o isolamento e bloqueio seguro da máquina antes da intervenção de manutenção.
+          </p>
+        </div>
+
+        <div class="steps-sortable-list" id="order-steps-container">
+          <!-- Injected via JS -->
+        </div>
+
+        <button class="btn-hero solo" style="margin-top: 1rem;" onclick="GameApp.validateProcedureOrder()">
+          🔢 VALIDAR ORDEM DOS PASSOS
+        </button>
+      </div>
+    </section>
+
+    <!-- SCREEN 9: MODO 6 - CARTA SURPRESA -->
+    <section id="screen-mode6" class="screen">
+      <div class="card-surprise-container">
+        <div style="text-align: center;">
+          <h2 style="font-size: 1.8rem; color: var(--purple); font-weight: 900;">🃏 CARTA SURPRESA DO SESMT</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem;">Clique na carta para revelar seu modificador especial de jogo!</p>
+        </div>
+
+        <div class="card-3d-scene" onclick="GameApp.flipSurpriseCard()">
+          <div class="card-3d-box" id="surprise-card-box">
+            <div class="card-face front">
+              <div style="font-size: 3.5rem; margin-bottom: 0.8rem;">🃏</div>
+              <h3 style="color: var(--accent); font-size: 1.25rem;">CARTA DA SORTE</h3>
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">Toque para Virar</p>
+            </div>
+            <div class="card-face back">
+              <div id="surprise-card-icon" style="font-size: 3.2rem;">⚡</div>
+              <h4 id="surprise-card-title" style="color: var(--yellow); font-size: 1.2rem; font-weight: 800;">Inspeção do MTE!</h4>
+              <p id="surprise-card-desc" style="color: #eee; font-size: 0.92rem; line-height: 1.4;">
+                Próxima questão vale pontos em dobro! Responda com precisão.
+              </p>
+              <div id="surprise-card-tag" class="situation-tag" style="margin-top: 0.5rem;">BÔNUS ATIVO</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="surprise-challenge-box" style="display: none; width: 100%;" class="gameplay-box">
+          <div class="situation-tag" style="background: rgba(179, 136, 255, 0.2); color: var(--purple);">DESAFIO DA CARTA</div>
+          <h3 id="surprise-q-title" style="color: #fff; font-size: 1.25rem;">Pergunta Relâmpago</h3>
+          <p id="surprise-q-desc" style="color: #ddd; font-size: 0.95rem;">Descrição da pergunta...</p>
+          <div class="semaforo-buttons-grid">
+            <button class="btn-signal green" onclick="GameApp.handleSurpriseChoice('green')">
+              <span>🟢 VERDE</span>
+            </button>
+            <button class="btn-signal yellow" onclick="GameApp.handleSurpriseChoice('yellow')">
+              <span>🟡 AMARELO</span>
+            </button>
+            <button class="btn-signal red" onclick="GameApp.handleSurpriseChoice('red')">
+              <span>🔴 VERMELHO</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 10: MODO 7 - CHEFE FINAL -->
+    <section id="screen-mode7" class="screen">
+      <div class="boss-container">
+        <div class="boss-header-bar">
+          <div>
+            <span style="font-size: 0.78rem; font-weight: 800; color: var(--red); letter-spacing: 2px;">DESAFIO SUPREMO</span>
+            <h3 style="color: #fff; font-size: 1.35rem; font-weight: 900;">👷 AUDITORIA MASTER DO SESMT</h3>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem;">
+            <div style="font-size: 0.78rem; color: #ff9999; font-weight: 700;">ACERTOS CONSECUTIVOS EXIGIDOS: 5</div>
+            <div class="boss-streak-dots" id="boss-streak-dots">
+              <div class="streak-dot"></div>
+              <div class="streak-dot"></div>
+              <div class="streak-dot"></div>
+              <div class="streak-dot"></div>
+              <div class="streak-dot"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="gameplay-box">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="situation-tag" style="background: rgba(255, 68, 68, 0.2); color: var(--red); border-color: var(--red);" id="boss-question-tag">
+              Auditoria 1/5 • Sem Erros Permitidos!
+            </div>
+            <div style="color: var(--yellow); font-weight: 800; font-size: 0.9rem;">1 Erro = Recomeça</div>
+          </div>
+
+          <div class="situation-scene-container" id="boss-scene-svg">
+            <!-- Scene SVG -->
+          </div>
+
+          <div class="situation-content">
+            <h3 class="situation-title" id="boss-title">Situação de Alto Risco</h3>
+            <p class="situation-desc" id="boss-desc">Descrição do problema...</p>
+          </div>
+
+          <div class="semaforo-buttons-grid">
+            <button class="btn-signal green" onclick="GameApp.handleBossChoice('green')">
+              <div class="signal-dot" style="background: var(--green);"></div>
+              <span>VERDE (SEGURO)</span>
+            </button>
+            <button class="btn-signal yellow" onclick="GameApp.handleBossChoice('yellow')">
+              <div class="signal-dot" style="background: var(--yellow);"></div>
+              <span>AMARELO (ATENÇÃO)</span>
+            </button>
+            <button class="btn-signal red" onclick="GameApp.handleBossChoice('red')">
+              <div class="signal-dot" style="background: var(--red);"></div>
+              <span>🔴 VERMELHO (PERIGO GRAVE)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 11: TELA FINAL / RANKING / VITÓRIA -->
+    <section id="screen-endgame" class="screen">
+      <div class="endgame-container">
+        <h2 style="font-size: 2.2rem; font-weight: 900; color: #fff;">🎉 FIM DE JOGO!</h2>
+
+        <!-- Podium (Shown in competition mode) -->
+        <div id="endgame-podium" class="podium-wrapper" style="display: none;">
+          <!-- Dynamically populated -->
+        </div>
+
+        <!-- Solo Scoreboard (Shown in solo mode) -->
+        <div id="endgame-solo-summary" style="display: flex; flex-direction: column; align-items: center; gap: 0.8rem;">
+          <div style="font-size: 3rem; font-weight: 900; color: var(--yellow);" id="final-score-val">0 pts</div>
+          <div class="classification-badge" id="final-classification-badge">
+            <span>👷</span>
+            <span id="final-classification-text">Técnico em Segurança</span>
+          </div>
+          <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem; color: var(--text-muted); font-size: 0.95rem;">
+            <div>Acertos: <strong id="final-hits" style="color: var(--green);">0</strong></div>
+            <div>Erros: <strong id="final-errors" style="color: var(--red);">0</strong></div>
+            <div>Precisão: <strong id="final-accuracy" style="color: var(--accent);">0%</strong></div>
+          </div>
+        </div>
+
+        <!-- Obligatory Safety Motto -->
+        <div style="background: rgba(0, 255, 136, 0.08); border: 1px solid var(--green); padding: 1rem 1.6rem; border-radius: var(--radius-md); max-width: 600px; width: 100%;">
+          <p style="font-size: 1.15rem; font-weight: 800; color: var(--green); line-height: 1.4;">
+            "Segurança não é opção, é responsabilidade de todos!"
+          </p>
+        </div>
+
+        <!-- Achievements Grid -->
+        <div style="width: 100%; text-align: left;">
+          <h4 style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.6rem;">
+            Medalhas & Conquistas
+          </h4>
+          <div class="achievements-grid" id="endgame-achievements-container">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; width: 100%; margin-top: 0.8rem;">
+          <button class="btn-hero" style="background: rgba(255,255,255,0.08); color: var(--text);" onclick="GameApp.openErrorsReviewModal()">
+            📋 Revisar Erros
+          </button>
+          <button class="btn-hero" style="background: rgba(79, 195, 247, 0.2); border: 1px solid var(--accent); color: var(--accent);" onclick="GameApp.openCertificateModal()">
+            📜 Ver Certificado SVG
+          </button>
+          <button class="btn-hero solo" onclick="GameApp.restartGame()">
+            🔄 Jogar Novamente
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ========================================================================
+       MODALS
+       ======================================================================== -->
+  <!-- FEEDBACK MODAL (After every question) -->
+  <div class="modal-overlay" id="modal-feedback">
+    <div class="modal-dialog">
+      <div class="feedback-status-banner" id="modal-feedback-banner">
+        <span id="modal-feedback-icon" style="font-size: 2rem;">✅</span>
+        <span id="modal-feedback-title">Resposta Correta!</span>
+      </div>
+
+      <div class="feedback-card">
+        <div class="feedback-card-title">🔍 Por Quê? (Explicação Técnica)</div>
+        <div class="feedback-card-text" id="modal-feedback-why">...</div>
+      </div>
+
+      <div class="feedback-card action">
+        <div class="feedback-card-title" style="color: var(--green);">🛡️ Atitude Segura Recomendada</div>
+        <div class="feedback-card-text" id="modal-feedback-action">...</div>
+      </div>
+
+      <div class="feedback-card nr">
+        <div class="feedback-card-title" style="color: var(--yellow);">📚 Você Sabia? (Norma Regulamentadora)</div>
+        <div class="feedback-card-text" id="modal-feedback-nr">...</div>
+      </div>
+
+      <button class="btn-hero solo" style="margin-top: 0.5rem;" onclick="GameApp.closeFeedbackModal()">
+        PRÓXIMO ➡️
+      </button>
+    </div>
+  </div>
+
+  <!-- ERRORS REVIEW MODAL -->
+  <div class="modal-overlay" id="modal-errors-review">
+    <div class="modal-dialog" style="max-width: 700px;">
+      <h3 style="color: var(--accent); font-size: 1.4rem;">📋 Revisão de Erros da Partida</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        Aprender com os erros é o princípio básico da prevenção de acidentes de trabalho.
+      </p>
+
+      <div id="errors-review-list" style="display: flex; flex-direction: column; gap: 1rem; max-height: 50vh; overflow-y: auto; padding-right: 0.5rem;">
+        <!-- Injected by JS -->
+      </div>
+
+      <button class="btn-hero solo" onclick="document.getElementById('modal-errors-review').classList.remove('active')">
+        FECHAR REVISÃO
+      </button>
+    </div>
+  </div>
+
+  <!-- SVG CERTIFICATE MODAL -->
+  <div class="modal-overlay" id="modal-certificate">
+    <div class="modal-dialog" style="max-width: 650px; align-items: center; text-align: center;">
+      <h3 style="color: var(--yellow); font-size: 1.4rem;">🏆 Certificado Oficial SESMT</h3>
+      <div id="certificate-svg-container" style="width: 100%; border-radius: var(--radius-md); overflow: hidden; margin: 0.5rem 0;">
+        <!-- Injected by JS -->
+      </div>
+      <button class="btn-hero solo" onclick="document.getElementById('modal-certificate').classList.remove('active')">
+        CONCLUIR
+      </button>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast-notification">
+    <span id="toast-icon" style="font-size: 1.6rem;">⭐</span>
+    <div>
+      <h5 id="toast-title" style="color: #fff; font-size: 0.95rem; font-weight: 800;">Conquista Desbloqueada!</h5>
+      <p id="toast-desc" style="color: var(--text-muted); font-size: 0.8rem;">Descrição...</p>
+    </div>
+  </div>
+  <!-- ========================================================================
+       JAVASCRIPT GAME ENGINE
+       ======================================================================== -->
+  
+
+  <script src="js/game.js"></script>
+</body>
+</html>
